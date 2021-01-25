@@ -49,10 +49,49 @@ The following diagram shows how this services communicate among them.
   * *createTask* will be the name of the queue and it is assumed that it is already created in RabbitMQ.
   * Messages will be JSON with format: ```{ id: 0, text: “content” }```
 - _Server_ will be created by server (if it is not created)
-- Several parallel client management is to be allowed
+- Several parallel client management is to be allowed.
 
 ## Worker
+- Will be implemented in Java and SpringBoot.
+- Responds to task request through an AMQP queue.
+- In order to init the task, the text from the AMQP is obtained and a 1 second wait (with Thread.sleep(1000))
+- After this thread stop, a 25% progress update is send.
+- A call to _external service 1_ (that offers a gRPC API) --> This service receives the original text and it returns the same text to uppercase.
+- When the response from the _external service 1_ is received a 50% progress update is send.
+- This uppercased text will be sent to _external service 2_ that will translate it using an API REST.
+- A wait of 1 second will be simulated.
+- Final text will have an * before and after
+- At this point a 100% message will be send.
+- For the percentage of completion notification to the _server_ will use another queue:
+  * *taskProgress* will be the name and it will be assumed that it is already created.
+  * The messages will be a JSON with the same format that _client_ will receive via _WebSockets_
+     * ```{ id: 0, completed: false, progress: 10 }```
+- The result from the task will be send from _worker_ to _server_ through an special "completed" message with the processed text by the external service.
+     * Task *tasksProgress* queue will be used.
+     * The format will be the same as the received by _websockets_
+        * ```{ id: 0, completed: true, progress: 100, result: ‘CONTENT’ }```
+  
+## External Service 1
+- Offers a gRPC API used by _Worker_ when doing its task.
+- It receives a text and returns it in UPPERCASE.
+- It will be implemented in Node.
+- The gRPD API will be: 
+  * UppercaseRequest: ```{string text}```
+  * UppercaseResponse: ```{string result}```
+  * Service: toUpperCase(UppercaseRequest) returns UppercaseResponse 
+- It will simulate a 1 second process time.
 
+## External Service 2
+- API REST that will receive a text in spanish and will return it in english.
+  * Request
+    * URL: */api/translation/hola*
+    * Method: *GET*
+    * Response Body: ```{"id":"hola", "translation":"hello"}```
+- Implemented in Java with SpringBoot.
+- It will have a list of translated words in a MongoDB.
+- If there is no translation an *unknown* value will be returned.
+- It will be implemented using WebFlux.
+- It will simulate a 1 second process.
 # Usage
 
 ## Environment configuration
