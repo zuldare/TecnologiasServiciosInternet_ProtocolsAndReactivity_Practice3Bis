@@ -29,6 +29,30 @@ The following diagram shows how this services communicate among them.
 - The web will be available in _http://127.0.0.1:3000_
 
 ## Server
+- It will offer an API REST in order to create, list and delete tasks.
+- It will be implemented with Node.js and with a MySQL database.
+- It will be assumed that the completition of the tasks takes too much time and can not be done in the context of a REST request.
+- Each time a task is requested, the server returns inmediatelly the task id to the _client_ and the task is ready to be launched on the background.
+- _Client_ can request the percentage of completion of the task using the id of the previous point.
+- The API request and messages could be:
+  * URL */tasks/*
+  * Request body: ```{ text: 'content' } ```
+  * Response body: ```{ id:1, text:'content', progress: 0, completed: false}```
+- _Client_ can connect to a WebSocket in order to receive an event each time the task updates its completion percentage. In order to do that it must 'suscribe' explicitly in order to receive updates with the following message: 
+  * ```{ type: 'suscription' , task-id:0}```
+- The progress update format will be:
+  * ```{ id: 0, completed: false, progress: 10 }```
+- When the task ends, the format of the message will be:
+  * ```{id: 0, completed: true, progress: 100, result: ‘CONTENT’}```
+- It is assumed that task are intensive and executed on the _WORKER_ service.
+- _Server_ notifies _Worker_ using a AMQP with RabbitMQ. The message will carry the text send by the client.
+  * *createTask* will be the name of the queue and it is assumed that it is already created in RabbitMQ.
+  * Messages will be JSON with format: ```{ id: 0, text: “content” }```
+- _Server_ will be created by server (if it is not created)
+- Several parallel client management is to be allowed
+
+## Worker
+
 # Usage
 
 ## Environment configuration
